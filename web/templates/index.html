@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconocimiento de Emociones</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .video-container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        img {
+            width: 100%;
+            border-radius: 10px;
+            display: block;
+            background: #000;
+        }
+        .info {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2em;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .instructions {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .instructions h3 { margin-bottom: 15px; }
+        .instructions ul { 
+            list-style: none; 
+            padding: 0;
+        }
+        .instructions li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        .instructions li:last-child { border-bottom: none; }
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎭 Reconocimiento de Emociones en Tiempo Real</h1>
+        
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" alt="Video en Tiempo Real">
+        </div>
+        
+        <div class="info">
+            <strong>📊 Modelo:</strong> {{ model_info.name }} | 
+            <strong>✅ Precisión:</strong> {{ model_info.accuracy }}
+        </div>
+
+        <div class="instructions">
+            <h3>📝 Instrucciones</h3>
+            <ul>
+                <li>✅ Asegúrate de tener buena iluminación</li>
+                <li>👤 Coloca tu rostro frente a la cámara</li>
+                <li>😊 Haz diferentes expresiones faciales</li>
+                <li>🎭 El sistema detecta 7 emociones: Feliz, Triste, Enojado, Miedo, Sorpresa, Disgusto y Neutral</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>Proyecto de Inteligencia Artificial | Desarrollado con Python, TensorFlow, Keras y OpenCV</p>
+        </footer>
+    </div>
+</body>
+</html>

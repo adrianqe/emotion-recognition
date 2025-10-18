@@ -1,0 +1,40 @@
+# Modelos entrenados (muy pesados)
+*.h5
+*.keras
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Datos y capturas
+data/
+capturas/
+*.png
+*.jpg
+*.jpeg
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Otros
+*.log
+*.zip
+*.rar
