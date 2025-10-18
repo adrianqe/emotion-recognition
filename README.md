@@ -1,4 +1,4 @@
-# emotion-recognition# 🎭 Sistema de Reconocimiento de Emociones
+## Sistema de Reconocimiento de Emociones
 
 Sistema de reconocimiento de emociones faciales en tiempo real utilizando Deep Learning.
 
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 3. **Descargar el modelo entrenado:**
 
-Descarga el modelo desde: [Google Drive / Dropbox / tu enlace]
+Descarga el modelo desde: [enlace pendiente]
 
 Coloca el archivo `mejor_modelo_opt.h5` en la carpeta `models/`
 
@@ -86,9 +86,9 @@ emotion-recognition/
 
 | Modelo             | Precisión  | Tiempo Entrenamiento |
 | ------------------ | ---------- | -------------------- |
-| CNN Básico         | 65.78%     | ~20 min              |
-| Transfer Learning  | 61.48%     | ~30 min              |
-| **CNN Optimizado** | **73.78%** | **~25 min**          |
+| CNN Básico         | 65.78%     | ~35 min              |
+| Transfer Learning  | 61.48%     | ~40 min              |
+| **CNN Optimizado** | **73.78%** | **~35 min**          |
 
 ## 🛠️ Tecnologías
 
