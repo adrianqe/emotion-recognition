@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response
 import cv2
 import numpy as np
 from keras.models import load_model
@@ -13,22 +13,46 @@ EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮']
 IMG_SIZE = 64
 
 # Cargar modelo
-print("Cargando modelo...")
+MODEL_PATH = os.path.join('..', 'models', 'mejor_modelo_opt.h5')
+print(f"Cargando modelo desde: {MODEL_PATH}")
+
 try:
-    model = load_model('../models/mejor_modelo_opt.h5')
+    if not os.path.exists(MODEL_PATH):
+        print("Modelo no encontrado, descargando...")
+        from huggingface_hub import hf_hub_download
+        hf_hub_download(
+            repo_id='adrianqe/emotion-recognition-model',
+            filename='mejor_modelo_opt.h5',
+            local_dir='../models'
+        )
+
+    model = load_model(MODEL_PATH)
     MODEL_INFO = {"name": "CNN Optimizado", "accuracy": "73.78%"}
-except:
-    model = load_model('../models/mejor_modelo.h5')
-    MODEL_INFO = {"name": "CNN Básico", "accuracy": "65.78%"}
+    print("✅ Modelo cargado exitosamente")
+except Exception as e:
+    print(f"❌ Error al cargar modelo: {e}")
+    MODEL_INFO = {"name": "Error", "accuracy": "N/A"}
+    model = None
 
 # Detector de rostros
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-camera = cv2.VideoCapture(0)
+# Variable global para cámara
+camera = None
+
+
+def get_camera():
+    global camera
+    if camera is None or not camera.isOpened():
+        camera = cv2.VideoCapture(0)
+    return camera
 
 
 def detect_emotion(frame):
+    if model is None:
+        return frame
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
 
@@ -59,8 +83,10 @@ def detect_emotion(frame):
 
 
 def generate_frames():
+    cam = get_camera()
+
     while True:
-        success, frame = camera.read()
+        success, frame = cam.read()
         if not success:
             break
 
@@ -70,10 +96,10 @@ def generate_frames():
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
+        frame_bytes = buffer.tobytes()
 
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 
 @app.route('/')
@@ -86,8 +112,11 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
+@app.route('/health')
+def health():
+    return {"status": "ok", "model": MODEL_INFO}
+
+
 if __name__ == '__main__':
-    print("\n🎭 Servidor iniciado en http://localhost:5000")
-    print(f"📊 Modelo: {MODEL_INFO['name']} - {MODEL_INFO['accuracy']}")
-    print("⚠️  Presiona Ctrl+C para detener\n")
-    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
