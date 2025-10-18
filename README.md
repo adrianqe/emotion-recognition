@@ -1,4 +1,4 @@
-# emotion-recognition# 🎭 Sistema de Reconocimiento de Emociones
+## Sistema de Reconocimiento de Emociones
 
 Sistema de reconocimiento de emociones faciales en tiempo real utilizando Deep Learning.
 
@@ -34,10 +34,17 @@ pip install -r requirements.txt
 ```
 
 3. **Descargar el modelo entrenado:**
+```bash
+# Opción 1: Descarga manual
+# Descarga desde: https://huggingface.co/adrianqe/cnn-emotion-recognition-73
 
-Descarga el modelo desde: [Google Drive / Dropbox / tu enlace]
+# Opción 2: Usando wget/curl
+wget https://huggingface.co/adrianqe/cnn-emotion-recognition-73/resolve/main/emotion-recognition-model.h5 -P models/
 
-Coloca el archivo `mejor_modelo_opt.h5` en la carpeta `models/`
+# Opción 3: Usando Python
+pip install huggingface-hub
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='adrianqe/cnn-emotion-recognition-73', filename='emotion-recognition-model.h5', local_dir='models')"
+```
 
 4. **Ejecutar la aplicación:**
 
@@ -86,9 +93,9 @@ emotion-recognition/
 
 | Modelo             | Precisión  | Tiempo Entrenamiento |
 | ------------------ | ---------- | -------------------- |
-| CNN Básico         | 65.78%     | ~20 min              |
-| Transfer Learning  | 61.48%     | ~30 min              |
-| **CNN Optimizado** | **73.78%** | **~25 min**          |
+| CNN Básico         | 65.78%     | ~35 min              |
+| Transfer Learning  | 61.48%     | ~40 min              |
+| **CNN Optimizado** | **73.78%** | **~35 min**          |
 
 ## 🛠️ Tecnologías
 
