@@ -34,10 +34,17 @@ pip install -r requirements.txt
 ```
 
 3. **Descargar el modelo entrenado:**
+```bash
+# Opción 1: Descarga manual
+# Descarga desde: https://huggingface.co/adrianqe/cnn-emotion-recognition-73
 
-Descarga el modelo desde: [enlace pendiente]
+# Opción 2: Usando wget/curl
+wget https://huggingface.co/adrianqe/cnn-emotion-recognition-73/resolve/main/emotion-recognition-model.h5 -P models/
 
-Coloca el archivo `mejor_modelo_opt.h5` en la carpeta `models/`
+# Opción 3: Usando Python
+pip install huggingface-hub
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='adrianqe/cnn-emotion-recognition-73', filename='emotion-recognition-model.h5', local_dir='models')"
+```
 
 4. **Ejecutar la aplicación:**
 
