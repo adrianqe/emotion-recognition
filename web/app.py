@@ -23,8 +23,8 @@ try:
         os.makedirs('../models', exist_ok=True)
         from huggingface_hub import hf_hub_download
         hf_hub_download(
-            repo_id='adrianqe/emotion-recognition-model',
-            filename='mejor_modelo_opt.h5',
+            repo_id='adrianqe/cnn-emotion-recognition-73',
+            filename='emotion-recognition-model.h5',
             local_dir='../models'
         )
 
