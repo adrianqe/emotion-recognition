@@ -14,7 +14,7 @@ EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮']
 IMG_SIZE = 64
 
 # Cargar modelo
-MODEL_PATH = os.path.join('..', 'models', 'mejor_modelo_opt.h5')
+MODEL_PATH = os.path.join('..', 'models', 'emotion-recognition-model.h5')
 print(f"Cargando modelo desde: {MODEL_PATH}")
 
 try:
