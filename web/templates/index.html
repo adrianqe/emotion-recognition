@@ -3,64 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reconocimiento de Emociones</title>
+    <title>Reconocimiento de Emociones - IA</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-            color: white;
+            color: #fff;
         }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { 
-            text-align: center; 
-            margin-bottom: 30px; 
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
             font-size: 2.5em;
+            margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-        .video-container {
-            background: rgba(255,255,255,0.1);
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .model-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .video-section {
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
-        img {
+
+        #video {
             width: 100%;
+            height: auto;
             border-radius: 10px;
-            display: block;
             background: #000;
+            display: block;
         }
-        .info {
+
+        canvas {
+            display: none;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .emotion-display {
             text-align: center;
-            margin-top: 20px;
-            font-size: 1.2em;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
+        }
+
+        .emotion-emoji {
+            font-size: 5em;
+            margin: 20px 0;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .emotion-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .confidence {
+            font-size: 1.5em;
+            opacity: 0.9;
+        }
+
+        .probabilities h3 {
+            margin-bottom: 15px;
+        }
+
+        .prob-bar {
+            margin-bottom: 15px;
+        }
+
+        .prob-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .bar-container {
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 10px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            overflow: hidden;
         }
-        .instructions {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
             border-radius: 10px;
-            margin-top: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
-        .instructions h3 { margin-bottom: 15px; }
-        .instructions ul { 
-            list-style: none; 
-            padding: 0;
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            text-align: center;
         }
-        .instructions li {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
+
+        .stat-item h4 {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
         }
-        .instructions li:last-child { border-bottom: none; }
+
+        .stat-item p {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.info { background: rgba(33, 150, 243, 0.3); }
+
         footer {
             text-align: center;
             margin-top: 30px;
@@ -70,30 +218,225 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎭 Reconocimiento de Emociones en Tiempo Real</h1>
-        
-        <div class="video-container">
-            <img src="{{ url_for('video_feed') }}" alt="Video en Tiempo Real">
-        </div>
-        
-        <div class="info">
-            <strong>📊 Modelo:</strong> {{ model_info.name }} | 
-            <strong>✅ Precisión:</strong> {{ model_info.accuracy }}
+        <header>
+            <h1>🎭 Reconocimiento de Emociones</h1>
+            <p class="subtitle">Sistema de IA en Tiempo Real con tu Webcam</p>
+        </header>
+
+        <div class="model-info">
+            <strong>Modelo:</strong> {{ model_info.name }} | 
+            <strong>Precisión:</strong> {{ model_info.accuracy }}
         </div>
 
-        <div class="instructions">
-            <h3>📝 Instrucciones</h3>
-            <ul>
-                <li>✅ Asegúrate de tener buena iluminación</li>
-                <li>👤 Coloca tu rostro frente a la cámara</li>
-                <li>😊 Haz diferentes expresiones faciales</li>
-                <li>🎭 El sistema detecta 7 emociones: Feliz, Triste, Enojado, Miedo, Sorpresa, Disgusto y Neutral</li>
-            </ul>
+        <div class="main-content">
+            <div class="video-section">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                
+                <div id="statusMessage" class="status info" style="display: none;"></div>
+                
+                <div class="controls">
+                    <button id="startBtn">▶️ Iniciar Cámara</button>
+                    <button id="detectBtn" disabled>🔍 Detectar Emoción</button>
+                    <button id="autoBtn" disabled>🔄 Modo Automático</button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="card emotion-display">
+                    <h3>Emoción Detectada</h3>
+                    <div class="emotion-emoji" id="emotionEmoji">😐</div>
+                    <div class="emotion-name" id="emotionName">Neutral</div>
+                    <div class="confidence" id="confidence">0%</div>
+                </div>
+
+                <div class="card probabilities">
+                    <h3>Probabilidades</h3>
+                    <div id="probBars"></div>
+                </div>
+
+                <div class="card stats">
+                    <div class="stat-item">
+                        <h4>Detecciones</h4>
+                        <p id="detectionCount">0</p>
+                    </div>
+                    <div class="stat-item">
+                        <h4>Rostros</h4>
+                        <p id="faceCount">0</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <footer>
-            <p>Proyecto de Inteligencia Artificial | Desarrollado con Python, TensorFlow, Keras y OpenCV</p>
+            <p>Proyecto de Inteligencia Artificial | Python + TensorFlow + Keras + Flask</p>
         </footer>
     </div>
+
+    <script>
+        const EMOTIONS = ['Enojado', 'Disgusto', 'Miedo', 'Feliz', 'Neutral', 'Triste', 'Sorpresa'];
+        const EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮'];
+        
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let isAutoMode = false;
+        let detectionCount = 0;
+
+        // Crear barras de probabilidad
+        function createProbabilityBars() {
+            const container = document.getElementById('probBars');
+            container.innerHTML = EMOTIONS.map((emotion, idx) => `
+                <div class="prob-bar">
+                    <div class="prob-label">
+                        <span>${EMOJIS[idx]} ${emotion}</span>
+                        <span id="percent-${idx}">0%</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar-fill" id="bar-${idx}" style="width: 0%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Iniciar cámara
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: 640, height: 480 } 
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    document.getElementById('detectBtn').disabled = false;
+                    document.getElementById('autoBtn').disabled = false;
+                    document.getElementById('startBtn').textContent = '⏸️ Detener Cámara';
+                    showStatus('✅ Cámara iniciada correctamente', 'success');
+                };
+            } catch (error) {
+                showStatus('❌ No se pudo acceder a la cámara: ' + error.message, 'error');
+            }
+        }
+
+        // Detener cámara
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                isAutoMode = false;
+                document.getElementById('detectBtn').disabled = true;
+                document.getElementById('autoBtn').disabled = true;
+                document.getElementById('startBtn').textContent = '▶️ Iniciar Cámara';
+                showStatus('Cámara detenida', 'info');
+            }
+        }
+
+        // Detectar emoción
+        async function detectEmotion() {
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg');
+                
+                showStatus('🔍 Analizando...', 'info');
+                
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    detectionCount++;
+                    document.getElementById('detectionCount').textContent = detectionCount;
+                    document.getElementById('faceCount').textContent = data.faces_detected;
+                    
+                    if (data.faces_detected > 0 && data.results.length > 0) {
+                        const result = data.results[0];
+                        
+                        document.getElementById('emotionEmoji').textContent = result.emoji;
+                        document.getElementById('emotionName').textContent = result.emotion;
+                        document.getElementById('confidence').textContent = 
+                            `${result.confidence.toFixed(1)}% confianza`;
+                        
+                        // Actualizar barras
+                        Object.entries(result.probabilities).forEach(([emotion, prob]) => {
+                            const idx = EMOTIONS.indexOf(emotion);
+                            if (idx !== -1) {
+                                const bar = document.getElementById(`bar-${idx}`);
+                                const percent = document.getElementById(`percent-${idx}`);
+                                if (bar && percent) {
+                                    bar.style.width = `${prob}%`;
+                                    percent.textContent = `${prob.toFixed(1)}%`;
+                                }
+                            }
+                        });
+                        
+                        showStatus(`✅ Detectado: ${result.emoji} ${result.emotion}`, 'success');
+                    } else {
+                        showStatus('⚠️ No se detectó ningún rostro', 'error');
+                    }
+                } else {
+                    showStatus('❌ Error: ' + data.error, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('❌ Error en la detección: ' + error.message, 'error');
+            }
+        }
+
+        // Modo automático
+        async function autoDetect() {
+            if (isAutoMode) {
+                await detectEmotion();
+                setTimeout(autoDetect, 2000); // Detectar cada 2 segundos
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (stream) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+
+        document.getElementById('detectBtn').addEventListener('click', detectEmotion);
+
+        document.getElementById('autoBtn').addEventListener('click', () => {
+            isAutoMode = !isAutoMode;
+            const btn = document.getElementById('autoBtn');
+            if (isAutoMode) {
+                btn.textContent = '⏸️ Detener Auto';
+                autoDetect();
+                showStatus('🔄 Modo automático activado', 'info');
+            } else {
+                btn.textContent = '🔄 Modo Automático';
+                showStatus('Modo automático desactivado', 'info');
+            }
+        });
+
+        // Inicializar
+        createProbabilityBars();
+    </script>
 </body>
 </html>
