@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import base64
 import os
+import tensorflow as tf
 
 app = Flask(__name__)
 
@@ -18,6 +19,7 @@ MODEL_PATH = os.path.join('..', 'models', 'emotion-recognition-model.h5')
 print(f"Cargando modelo desde: {MODEL_PATH}")
 
 try:
+    print(f"TensorFlow versión: {tf.__version__}")
     if not os.path.exists(MODEL_PATH):
         print("Modelo no encontrado, descargando...")
         os.makedirs('../models', exist_ok=True)
