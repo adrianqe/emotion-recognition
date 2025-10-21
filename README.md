@@ -13,7 +13,6 @@ Sistema de reconocimiento de emociones faciales en tiempo real utilizando Deep L
 ## 🚀 Instalación
 
 ### Requisitos
-
 - Python 3.11.9
 - Cámara web
 - 8GB RAM mínimo
@@ -21,16 +20,19 @@ Sistema de reconocimiento de emociones faciales en tiempo real utilizando Deep L
 ### Pasos
 
 1. **Clonar el repositorio:**
-
 ```bash
 git clone https://github.com/adrianqe/emotion-recognition.git
 cd emotion-recognition
 ```
 
 2. **Instalar dependencias:**
-
 ```bash
 pip install -r requirements.txt
+```
+
+**Nota:** Si tienes problemas con TensorFlow, usa:
+```bash
+pip install tensorflow==2.20.0 numpy==1.26.0
 ```
 
 3. **Descargar el modelo entrenado:**
