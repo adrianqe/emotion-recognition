@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reconocimiento de Emociones - IA</title>
-
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
+    <!-- Face Detection Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -49,6 +51,29 @@
             border-radius: 10px;
             margin-bottom: 20px;
             text-align: center;
+        }
+
+        #loadingIndicator {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .main-content {
@@ -230,6 +255,11 @@
             <strong>Precisión:</strong> {{ model_info.accuracy }}
         </div>
 
+        <div id="loadingIndicator">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Procesando...</p>
+        </div>
+
         <div class="main-content">
             <div class="video-section">
                 <video id="video" autoplay playsinline></video>
@@ -275,250 +305,222 @@
         </footer>
     </div>
 
-<script>
-    const EMOTIONS = ['Enojado', 'Disgusto', 'Miedo', 'Feliz', 'Neutral', 'Triste', 'Sorpresa'];
-    const EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮'];
-    
-    let video = document.getElementById('video');
-    let canvas = document.getElementById('canvas');
-    let ctx = canvas.getContext('2d');
-    let stream = null;
-    let isAutoMode = false;
-    let detectionCount = 0;
-    let modelsLoaded = false;
-
-    // Cargar modelos de face-api.js
-    async function loadFaceDetectionModels() {
-        try {
-            showStatus('📦 Cargando modelos de detección facial...', 'info');
-            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
-            modelsLoaded = true;
-            showStatus('✅ Modelos de detección cargados', 'success');
-        } catch (error) {
-            console.error('Error loading face-api models:', error);
-            showStatus('⚠️ Usando detección del servidor', 'info');
-        }
-    }
-
-    // Crear barras de probabilidad
-    function createProbabilityBars() {
-        const container = document.getElementById('probBars');
-        container.innerHTML = EMOTIONS.map((emotion, idx) => `
-            <div class="prob-bar">
-                <div class="prob-label">
-                    <span>${EMOJIS[idx]} ${emotion}</span>
-                    <span id="percent-${idx}">0%</span>
-                </div>
-                <div class="bar-container">
-                    <div class="bar-fill" id="bar-${idx}" style="width: 0%"></div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    // Mostrar mensaje de estado
-    function showStatus(message, type = 'info') {
-        const statusEl = document.getElementById('statusMessage');
-        statusEl.textContent = message;
-        statusEl.className = `status ${type}`;
-        statusEl.style.display = 'block';
+    <script>
+        const EMOTIONS = ['Enojado', 'Disgusto', 'Miedo', 'Feliz', 'Neutral', 'Triste', 'Sorpresa'];
+        const EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮'];
         
-        if (type !== 'error') {
-            setTimeout(() => {
-                statusEl.style.display = 'none';
-            }, 3000);
-        }
-    }
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let isAutoMode = false;
+        let detectionCount = 0;
+        let modelsLoaded = false;
 
-    // Iniciar cámara
-    async function startCamera() {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'user',
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                } 
-            });
-            video.srcObject = stream;
-            
-            video.onloadedmetadata = () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                document.getElementById('detectBtn').disabled = false;
-                document.getElementById('autoBtn').disabled = false;
-                document.getElementById('startBtn').textContent = '⏸️ Detener Cámara';
-                showStatus('✅ Cámara iniciada correctamente', 'success');
-            };
-        } catch (error) {
-            showStatus('❌ No se pudo acceder a la cámara: ' + error.message, 'error');
-        }
-    }
-
-    // Detener cámara
-    function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-            isAutoMode = false;
-            document.getElementById('detectBtn').disabled = true;
-            document.getElementById('autoBtn').disabled = true;
-            document.getElementById('startBtn').textContent = '▶️ Iniciar Cámara';
-            showStatus('Cámara detenida', 'info');
-        }
-    }
-
-    // Detectar rostro con face-api.js (en el navegador)
-    async function detectFaceInBrowser() {
-        if (!modelsLoaded) return null;
-        
-        try {
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                inputSize: 224,
-                scoreThreshold: 0.5
-            }));
-            
-            return detections.length > 0 ? detections[0].box : null;
-        } catch (error) {
-            console.error('Face detection error:', error);
-            return null;
-        }
-    }
-
-    // Recortar rostro de la imagen
-    function cropFace(imageData, faceBox) {
-        if (!faceBox) return imageData;
-        
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // Expandir un poco el box para incluir más contexto
-        const padding = 20;
-        const x = Math.max(0, faceBox.x - padding);
-        const y = Math.max(0, faceBox.y - padding);
-        const width = Math.min(canvas.width - x, faceBox.width + padding * 2);
-        const height = Math.min(canvas.height - y, faceBox.height + padding * 2);
-        
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        
-        // Dibujar solo la región del rostro
-        tempCtx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
-        
-        return tempCanvas.toDataURL('image/jpeg', 0.8);
-    }
-
-    // Detectar emoción
-    async function detectEmotion() {
-        try {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            showStatus('🔍 Detectando rostro...', 'info');
-            
-            // Intentar detectar rostro en el navegador primero
-            let faceBox = null;
-            if (modelsLoaded) {
-                faceBox = await detectFaceInBrowser();
-                
-                if (!faceBox) {
-                    showStatus('⚠️ No se detectó rostro. Asegúrate de estar frente a la cámara.', 'error');
+        // Cargar modelos de face-api.js
+        async function loadFaceDetectionModels() {
+            try {
+                // Esperar a que face-api esté disponible
+                if (typeof faceapi === 'undefined') {
+                    console.log('face-api no disponible, usando detección del servidor');
+                    modelsLoaded = false;
                     return;
                 }
                 
-                // Dibujar rectángulo del rostro detectado
-                ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(faceBox.x, faceBox.y, faceBox.width, faceBox.height);
-            }
-            
-            // Obtener imagen (recortada si hay rostro detectado)
-            const imageData = faceBox ? cropFace(null, faceBox) : canvas.toDataURL('image/jpeg', 0.8);
-            
-            showStatus('🧠 Analizando emoción...', 'info');
-            
-            const response = await fetch('/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                detectionCount++;
-                document.getElementById('detectionCount').textContent = detectionCount;
-                document.getElementById('faceCount').textContent = data.faces_detected || 1;
+                showStatus('📦 Cargando modelos de detección facial...', 'info');
                 
-                if (data.results && data.results.length > 0) {
-                    const result = data.results[0];
-                    
-                    document.getElementById('emotionEmoji').textContent = result.emoji;
-                    document.getElementById('emotionName').textContent = result.emotion;
-                    document.getElementById('confidence').textContent = 
-                        `${result.confidence.toFixed(1)}% confianza`;
-                    
-                    // Actualizar barras
-                    Object.entries(result.probabilities).forEach(([emotion, prob]) => {
-                        const idx = EMOTIONS.indexOf(emotion);
-                        if (idx !== -1) {
-                            const bar = document.getElementById(`bar-${idx}`);
-                            const percent = document.getElementById(`percent-${idx}`);
-                            if (bar && percent) {
-                                bar.style.width = `${prob}%`;
-                                percent.textContent = `${prob.toFixed(1)}%`;
-                            }
-                        }
-                    });
-                    
-                    showStatus(`✅ ${result.emoji} ${result.emotion} detectado`, 'success');
-                } else {
-                    showStatus('⚠️ No se pudo clasificar la emoción', 'error');
-                }
-            } else {
-                showStatus('❌ Error: ' + (data.error || 'Error desconocido'), 'error');
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                
+                modelsLoaded = true;
+                showStatus('✅ Modelos de detección cargados', 'success');
+                console.log('✅ face-api.js models loaded');
+                
+            } catch (error) {
+                console.error('Error loading face-api models:', error);
+                modelsLoaded = false;
+                showStatus('⚠️ Detección funcionará sin face-api', 'info');
             }
+        }
+
+        // Crear barras de probabilidad
+        function createProbabilityBars() {
+            const container = document.getElementById('probBars');
+            container.innerHTML = EMOTIONS.map((emotion, idx) => `
+                <div class="prob-bar">
+                    <div class="prob-label">
+                        <span>${EMOJIS[idx]} ${emotion}</span>
+                        <span id="percent-${idx}">0%</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar-fill" id="bar-${idx}" style="width: 0%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
             
-        } catch (error) {
-            console.error('Detection error:', error);
-            showStatus('❌ Error en la detección: ' + error.message, 'error');
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
         }
-    }
 
-    // Modo automático
-    async function autoDetect() {
-        if (isAutoMode) {
-            await detectEmotion();
-            setTimeout(autoDetect, 3000); // Cada 3 segundos (menos frecuente para mejor rendimiento)
+        // Iniciar cámara
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    document.getElementById('detectBtn').disabled = false;
+                    document.getElementById('autoBtn').disabled = false;
+                    document.getElementById('startBtn').textContent = '⏸️ Detener Cámara';
+                    showStatus('✅ Cámara iniciada correctamente', 'success');
+                };
+            } catch (error) {
+                showStatus('❌ No se pudo acceder a la cámara: ' + error.message, 'error');
+            }
         }
-    }
 
-    // Event listeners
-    document.getElementById('startBtn').addEventListener('click', () => {
-        if (stream) {
-            stopCamera();
-        } else {
-            startCamera();
+        // Detener cámara
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                isAutoMode = false;
+                document.getElementById('detectBtn').disabled = true;
+                document.getElementById('autoBtn').disabled = true;
+                document.getElementById('startBtn').textContent = '▶️ Iniciar Cámara';
+                showStatus('Cámara detenida', 'info');
+            }
         }
-    });
 
-    document.getElementById('detectBtn').addEventListener('click', detectEmotion);
-
-    document.getElementById('autoBtn').addEventListener('click', () => {
-        isAutoMode = !isAutoMode;
-        const btn = document.getElementById('autoBtn');
-        if (isAutoMode) {
-            btn.textContent = '⏸️ Detener Auto';
-            autoDetect();
-            showStatus('🔄 Modo automático activado (cada 3 seg)', 'info');
-        } else {
-            btn.textContent = '🔄 Modo Automático';
-            showStatus('Modo automático desactivado', 'info');
+        // Detectar emoción
+        async function detectEmotion() {
+            try {
+                // Mostrar indicador de carga
+                document.getElementById('loadingIndicator').style.display = 'block';
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                showStatus('🔍 Analizando...', 'info');
+                
+                // Obtener imagen
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error del servidor: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    detectionCount++;
+                    document.getElementById('detectionCount').textContent = detectionCount;
+                    document.getElementById('faceCount').textContent = data.faces_detected || 1;
+                    
+                    if (data.results && data.results.length > 0) {
+                        const result = data.results[0];
+                        
+                        document.getElementById('emotionEmoji').textContent = result.emoji;
+                        document.getElementById('emotionName').textContent = result.emotion;
+                        document.getElementById('confidence').textContent = 
+                            `${result.confidence.toFixed(1)}% confianza`;
+                        
+                        // Actualizar barras
+                        Object.entries(result.probabilities).forEach(([emotion, prob]) => {
+                            const idx = EMOTIONS.indexOf(emotion);
+                            if (idx !== -1) {
+                                const bar = document.getElementById(`bar-${idx}`);
+                                const percent = document.getElementById(`percent-${idx}`);
+                                if (bar && percent) {
+                                    bar.style.width = `${prob}%`;
+                                    percent.textContent = `${prob.toFixed(1)}%`;
+                                }
+                            }
+                        });
+                        
+                        showStatus(`✅ ${result.emoji} ${result.emotion} detectado`, 'success');
+                    } else {
+                        showStatus('⚠️ No se pudo clasificar la emoción', 'error');
+                    }
+                } else {
+                    showStatus('❌ Error: ' + (data.error || 'Error desconocido'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Detection error:', error);
+                showStatus('❌ Error: ' + error.message, 'error');
+            } finally {
+                // Ocultar indicador
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
         }
-    });
 
-    // Inicializar
-    createProbabilityBars();
-    loadFaceDetectionModels();
-</script>
+        // Modo automático
+        async function autoDetect() {
+            if (isAutoMode) {
+                await detectEmotion();
+                setTimeout(autoDetect, 3000);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (stream) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+
+        document.getElementById('detectBtn').addEventListener('click', detectEmotion);
+
+        document.getElementById('autoBtn').addEventListener('click', () => {
+            isAutoMode = !isAutoMode;
+            const btn = document.getElementById('autoBtn');
+            if (isAutoMode) {
+                btn.textContent = '⏸️ Detener Auto';
+                autoDetect();
+                showStatus('🔄 Modo automático activado', 'info');
+            } else {
+                btn.textContent = '🔄 Modo Automático';
+                showStatus('Modo automático desactivado', 'info');
+            }
+        });
+
+        // Inicializar cuando la página cargue
+        window.addEventListener('DOMContentLoaded', () => {
+            createProbabilityBars();
+            
+            // Esperar un poco para que face-api esté disponible
+            setTimeout(() => {
+                loadFaceDetectionModels();
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

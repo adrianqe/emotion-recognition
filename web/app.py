@@ -1,10 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
-import base64
 import os
-import tensorflow as tf
+import gc
 
 app = Flask(__name__)
 
@@ -14,33 +12,63 @@ EMOTIONS = ['Enojado', 'Disgusto', 'Miedo',
 EMOJIS = ['😠', '🤢', '😨', '😊', '😐', '😢', '😮']
 IMG_SIZE = 64
 
-# Cargar modelo
-MODEL_PATH = os.path.join('..', 'models', 'emotion-recognition-model.h5')
-print(f"Cargando modelo desde: {MODEL_PATH}")
+# Variable global para modelo (carga lazy)
+model = None
+MODEL_INFO = {"name": "Cargando...", "accuracy": "N/A"}
 
-try:
-    print(f"TensorFlow versión: {tf.__version__}")
-    if not os.path.exists(MODEL_PATH):
-        print("Modelo no encontrado, descargando...")
-        os.makedirs('../models', exist_ok=True)
-        from huggingface_hub import hf_hub_download
-        hf_hub_download(
-            repo_id='adrianqe/cnn-emotion-recognition-73',
-            filename='emotion-recognition-model.h5',
-            local_dir='../models'
-        )
 
-    model = load_model(MODEL_PATH)
-    MODEL_INFO = {"name": "CNN Optimizado", "accuracy": "73.78%"}
-    print("✅ Modelo cargado exitosamente")
-except Exception as e:
-    print(f"❌ Error al cargar modelo: {e}")
-    MODEL_INFO = {"name": "Error", "accuracy": "N/A"}
-    model = None
+def load_model_lazy():
+    """Carga el modelo solo cuando se necesita"""
+    global model, MODEL_INFO
 
-# Detector de rostros
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    if model is not None:
+        return model
+
+    MODEL_PATH = os.path.join('..', 'models', 'emotion-recognition-model.h5')
+    print(f"Cargando modelo desde: {MODEL_PATH}")
+
+    try:
+        if not os.path.exists(MODEL_PATH):
+            print("Modelo no encontrado, descargando desde Hugging Face...")
+            os.makedirs('../models', exist_ok=True)
+
+            from huggingface_hub import hf_hub_download
+
+            hf_hub_download(
+                repo_id='adrianqe/cnn-emotion-recognition-73',
+                filename='emotion-recognition-model.h5',
+                local_dir='../models',
+                local_dir_use_symlinks=False
+            )
+            print("✅ Modelo descargado exitosamente")
+
+        # Cargar con configuración de memoria optimizada
+        import tensorflow as tf
+        # Limitar memoria de TensorFlow
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+
+        from keras.models import load_model
+        model = load_model(MODEL_PATH, compile=False)
+        model.compile(
+            optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+        MODEL_INFO = {"name": "CNN Optimizado", "accuracy": "73.78%"}
+        print("✅ Modelo cargado exitosamente")
+
+        # Limpiar memoria
+        gc.collect()
+
+        return model
+
+    except Exception as e:
+        print(f"❌ Error al cargar modelo: {e}")
+        import traceback
+        traceback.print_exc()
+        MODEL_INFO = {"name": "Error", "accuracy": "N/A"}
+        return None
 
 
 @app.route('/')
@@ -52,72 +80,79 @@ def index():
 def predict():
     """Endpoint para predicción de imagen desde el navegador"""
     try:
-        if model is None:
+        # Cargar modelo si no está cargado
+        current_model = load_model_lazy()
+
+        if current_model is None:
             return jsonify({
                 'success': False,
-                'error': 'Modelo no disponible'
-            })
+                'error': 'Modelo no disponible. Intenta recargar la página.'
+            }), 500
 
-        # Recibir imagen en base64
+        # Recibir imagen
         data = request.json
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No se recibió imagen'}), 400
+
+        import base64
         image_data = data['image'].split(',')[1]
 
-        # Decodificar imagen
+        # Decodificar
         nparr = np.frombuffer(base64.b64decode(image_data), np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return jsonify({'success': False, 'error': 'Imagen inválida'}), 400
+
+        # Reducir tamaño (CRÍTICO para rendimiento)
+        max_size = 320  # Reducido aún más
+        height, width = img.shape[:2]
+        if width > max_size or height > max_size:
+            scale = max_size / max(width, height)
+            img = cv2.resize(img, None, fx=scale, fy=scale,
+                             interpolation=cv2.INTER_AREA)
 
         # Convertir a escala de grises
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # Detectar rostros
-        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
+        # Preprocesar (sin detección de rostros - el navegador lo hace)
+        face_resized = cv2.resize(gray, (IMG_SIZE, IMG_SIZE))
+        face_normalized = face_resized.astype(np.float32) / 255.0
+        face_input = face_normalized.reshape(1, IMG_SIZE, IMG_SIZE, 1)
 
-        if len(faces) == 0:
-            return jsonify({
-                'success': True,
-                'faces_detected': 0,
-                'message': 'No se detectó ningún rostro'
-            })
+        # Predecir
+        predictions = current_model.predict(face_input, verbose=0)[0]
+        emotion_idx = int(np.argmax(predictions))
+        confidence = float(predictions[emotion_idx] * 100)
+        emotion = EMOTIONS[emotion_idx]
+        emoji = EMOJIS[emotion_idx]
 
-        results = []
+        # Limpiar memoria
+        del img, gray, face_resized, face_normalized, face_input
+        gc.collect()
 
-        for (x, y, w, h) in faces:
-            # Extraer y preprocesar rostro
-            face_roi = gray[y:y+h, x:x+w]
-            face_resized = cv2.resize(face_roi, (IMG_SIZE, IMG_SIZE))
-            face_normalized = face_resized / 255.0
-            face_input = face_normalized.reshape(1, IMG_SIZE, IMG_SIZE, 1)
-
-            # Predecir
-            predictions = model.predict(face_input, verbose=0)[0]
-            emotion_idx = np.argmax(predictions)
-            confidence = float(predictions[emotion_idx] * 100)
-            emotion = EMOTIONS[emotion_idx]
-            emoji = EMOJIS[emotion_idx]
-
-            results.append({
+        return jsonify({
+            'success': True,
+            'faces_detected': 1,
+            'results': [{
                 'emotion': emotion,
                 'emoji': emoji,
                 'confidence': confidence,
-                'position': {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)},
                 'probabilities': {
                     EMOTIONS[i]: float(predictions[i] * 100)
                     for i in range(len(EMOTIONS))
                 }
-            })
-
-        return jsonify({
-            'success': True,
-            'faces_detected': len(faces),
-            'results': results
+            }]
         })
 
     except Exception as e:
-        print(f"Error en predicción: {e}")
+        print(f"❌ Error en predicción: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
-        })
+            'error': f'Error en el servidor: {str(e)}'
+        }), 500
 
 
 @app.route('/health')
