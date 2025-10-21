@@ -15,11 +15,12 @@ IMG_SIZE = 64
 # Variable global para modelo (carga lazy)
 model = None
 MODEL_INFO = {"name": "Cargando...", "accuracy": "N/A"}
+face_cascade = None
 
 
 def load_model_lazy():
     """Carga el modelo solo cuando se necesita"""
-    global model, MODEL_INFO
+    global model, MODEL_INFO, face_cascade
 
     if model is not None:
         return model
@@ -44,6 +45,7 @@ def load_model_lazy():
 
         # Cargar con configuración de memoria optimizada
         import tensorflow as tf
+
         # Limitar memoria de TensorFlow
         gpus = tf.config.list_physical_devices('GPU')
         if gpus:
@@ -53,7 +55,15 @@ def load_model_lazy():
         from keras.models import load_model
         model = load_model(MODEL_PATH, compile=False)
         model.compile(
-            optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+            optimizer='adam',
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+
+        # Cargar detector de rostros
+        face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
 
         MODEL_INFO = {"name": "CNN Optimizado", "accuracy": "73.78%"}
         print("✅ Modelo cargado exitosamente")
@@ -104,8 +114,8 @@ def predict():
         if img is None:
             return jsonify({'success': False, 'error': 'Imagen inválida'}), 400
 
-        # Reducir tamaño (CRÍTICO para rendimiento)
-        max_size = 320  # Reducido aún más
+        # Reducir tamaño para mejor rendimiento
+        max_size = 480
         height, width = img.shape[:2]
         if width > max_size or height > max_size:
             scale = max_size / max(width, height)
@@ -115,8 +125,54 @@ def predict():
         # Convertir a escala de grises
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # Preprocesar (sin detección de rostros - el navegador lo hace)
-        face_resized = cv2.resize(gray, (IMG_SIZE, IMG_SIZE))
+        # IMPORTANTE: Detectar rostros primero
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30)
+        )
+
+        # Si no se detectan rostros, usar imagen completa como fallback
+        if len(faces) == 0:
+            print("⚠️ No se detectó rostro, usando imagen completa")
+            face_resized = cv2.resize(gray, (IMG_SIZE, IMG_SIZE))
+            face_normalized = face_resized.astype(np.float32) / 255.0
+            face_input = face_normalized.reshape(1, IMG_SIZE, IMG_SIZE, 1)
+
+            predictions = current_model.predict(face_input, verbose=0)[0]
+            emotion_idx = int(np.argmax(predictions))
+            confidence = float(predictions[emotion_idx] * 100)
+            emotion = EMOTIONS[emotion_idx]
+            emoji = EMOJIS[emotion_idx]
+
+            # Limpiar memoria
+            del img, gray, face_resized, face_normalized, face_input
+            gc.collect()
+
+            return jsonify({
+                'success': True,
+                'faces_detected': 0,
+                'results': [{
+                    'emotion': emotion,
+                    'emoji': emoji,
+                    'confidence': confidence,
+                    'probabilities': {
+                        EMOTIONS[i]: float(predictions[i] * 100)
+                        for i in range(len(EMOTIONS))
+                    }
+                }]
+            })
+
+        # Procesar solo el primer rostro (optimización)
+        results = []
+        (x, y, w, h) = faces[0]
+
+        # Extraer región del rostro
+        face_roi = gray[y:y+h, x:x+w]
+
+        # Preprocesar rostro
+        face_resized = cv2.resize(face_roi, (IMG_SIZE, IMG_SIZE))
         face_normalized = face_resized.astype(np.float32) / 255.0
         face_input = face_normalized.reshape(1, IMG_SIZE, IMG_SIZE, 1)
 
@@ -127,22 +183,25 @@ def predict():
         emotion = EMOTIONS[emotion_idx]
         emoji = EMOJIS[emotion_idx]
 
+        results.append({
+            'emotion': emotion,
+            'emoji': emoji,
+            'confidence': confidence,
+            'position': {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)},
+            'probabilities': {
+                EMOTIONS[i]: float(predictions[i] * 100)
+                for i in range(len(EMOTIONS))
+            }
+        })
+
         # Limpiar memoria
-        del img, gray, face_resized, face_normalized, face_input
+        del img, gray, face_roi, face_resized, face_normalized, face_input
         gc.collect()
 
         return jsonify({
             'success': True,
-            'faces_detected': 1,
-            'results': [{
-                'emotion': emotion,
-                'emoji': emoji,
-                'confidence': confidence,
-                'probabilities': {
-                    EMOTIONS[i]: float(predictions[i] * 100)
-                    for i in range(len(EMOTIONS))
-                }
-            }]
+            'faces_detected': len(faces),
+            'results': results
         })
 
     except Exception as e:
